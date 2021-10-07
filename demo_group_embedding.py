@@ -6,16 +6,46 @@ import torch
 import itertools
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
 import Levenshtein as lev
 from lr_scheduler import WarmupMultiStepLR
 
 
 class Encoder(torch.nn.Module):
-    def __init__(self, generators):
+    def __init__(
+        self, generators,
+        letter_dimension=2, dimension=256,
+        bidirectional=True, layers=2
+    ):
         super().__init__()
-        self.embedding = torch.nn.Embedding(1 + 2 * generators, 16)
+        self.generators = generators
+        self.letter_dimension = letter_dimension
+        self.dimension = dimension
+
+        if self.letter_dimension != self.generators:
+            self.embedding = torch.nn.Embedding(
+                1 + 2 * self.generators,
+                self.letter_dimension
+            )
+            print("trainable embeddings mode")
+        else:
+            def embedding(texts):
+                binary = F.one_hot(
+                    (texts - 1).fmod(self.generators).long() + 1,
+                    num_classes=self.generators + 1
+                )[..., 1:]
+                binary.mul_(torch.sign(
+                    -torch.stack([texts, texts], dim=2) + self.generators + 0.5
+                ).long())
+                return binary.float()
+
+            self.embedding = embedding
+            print("crosshair embeddings mode")
+
         self.lstm = torch.nn.LSTM(
-            16, 256, num_layers=2, bidirectional=False, dropout=0.2, batch_first=True
+            self.letter_dimension, self.dimension // (
+                layers * (2 if bidirectional else 1)),
+            num_layers=layers, bidirectional=True, dropout=0.2, batch_first=True
         )
 
     def forward(self, text, text_lengths):
@@ -24,7 +54,8 @@ class Encoder(torch.nn.Module):
             batch_first=True, enforce_sorted=False
         )
         packed_output, (hidden, cell) = self.lstm(packed_embedded)
-        hidden = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
+        hidden = torch.cat([hidden[i, :, :]
+                           for i in range(hidden.shape[0])], dim=1)
         return hidden
 
 
@@ -58,8 +89,20 @@ class GroupDataset(Dataset):
         sequence = [random.choice(list(range(1, 1 + 2 * self.generators)))]
         for _ in range(length - 1):
             sequence.append(random.choice(list(
-                set(range(1, 1 + 2 * self.generators)) - set([1 + (sequence[-1] + 1) % 4]))))
-        return {'sequence': (sequence, length)}
+                set(range(1, 1 + 2 * self.generators)) -
+                set([1 + (sequence[-1] + 1) % 4])
+            )))
+        sequence = "".join(map(str, sequence))
+
+        """
+        If you want to guarantee the non-reducability
+
+        while any([str(i) + str(1 + (i + 1) % 4) in sequence for i in range(1, 1 + 2 * self.generators)]):
+            for i in range(1, 1 + 2 * self.generators):
+                sequence = sequence.replace(str(i) + str(1 + (i + 1) % 4), "")
+        """
+
+        return {'sequence': (list(map(int, list(sequence))), length)}
 
 
 def collate_wrapper(batch):
@@ -74,9 +117,10 @@ def pairwise_distances(sequences):
     result = np.zeros(shape=(batch_size, batch_size))
     for i in range(batch_size):
         for j in range(i + 1):
-            s1, s2 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[i])), "".join(
-                map(lambda x: str(x.item()).strip("0"), sequences[j]))
-            result[i, j] = result[j, i] = len(s1) + len(s2) - 2 * len(lcp([s1, s2]))
+            s1 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[i]))
+            s2 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[j]))
+            result[i, j] = result[j, i] =\
+                len(s1) + len(s2) - 2 * len(lcp([s1, s2]))
     return torch.Tensor(result)
 
 
@@ -112,7 +156,7 @@ for _ in range(epochs):
         loss = criterion(
             torch.cdist(embeddings, embeddings, p=2).unsqueeze(0),
             pairwise_distances(sequences).unsqueeze(0)
-        )
+        ) / (batch_size**2)
         loss.backward()
         optimizer.step()
         scheduler.step()
