@@ -11,9 +11,9 @@ from lr_scheduler import WarmupMultiStepLR
 
 
 class Encoder(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, generators):
         super().__init__()
-        self.embedding = torch.nn.Embedding(5, 16)
+        self.embedding = torch.nn.Embedding(1 + 2 * generators, 16)
         self.lstm = torch.nn.LSTM(
             16, 256, num_layers=2, bidirectional=False, dropout=0.2, batch_first=True
         )
@@ -28,18 +28,37 @@ class Encoder(torch.nn.Module):
         return hidden
 
 
+def lcp(strs):
+    if len(strs) == 0:
+        return ""
+    current = strs[0]
+    for i in range(1, len(strs)):
+        temp = ""
+        if len(current) == 0:
+            break
+        for j in range(len(strs[i])):
+            if j < len(current) and current[j] == strs[i][j]:
+                temp += current[j]
+            else:
+                break
+        current = temp
+    return current
+
+
 class GroupDataset(Dataset):
-    def __init__(self, samples_count, generators):
-        self.samples_count = samples_count
+    def __init__(self, sample_count, generators):
+        self.sample_count = sample_count
         self.generators = generators
 
     def __len__(self):
-        return self.samples_count
+        return self.sample_count
 
     def __getitem__(self, idx):
         length = max(1, int(np.random.poisson(lam=5.0)))
-        sequence = [random.choice(
-            list(range(1, 1 + 2 * self.generators))) for _ in range(length)]
+        sequence = [random.choice(list(range(1, 1 + 2 * self.generators)))]
+        for _ in range(length - 1):
+            sequence.append(random.choice(list(
+                set(range(1, 1 + 2 * self.generators)) - set([1 + (sequence[-1] + 1) % 4]))))
         return {'sequence': (sequence, length)}
 
 
@@ -55,24 +74,24 @@ def pairwise_distances(sequences):
     result = np.zeros(shape=(batch_size, batch_size))
     for i in range(batch_size):
         for j in range(i + 1):
-            result[i, j] = result[j, i] = lev.distance(
-                "".join(map(str, sequences[i])), "".join(map(str, sequences[j])))
+            s1, s2 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[i])), "".join(
+                map(lambda x: str(x.item()).strip("0"), sequences[j]))
+            result[i, j] = result[j, i] = len(s1) + len(s2) - 2 * len(lcp([s1, s2]))
     return torch.Tensor(result)
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Encoder().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-scheduler = WarmupMultiStepLR(optimizer, warmup_iters=10)
-
-criterion = torch.nn.MSELoss().to(device)
-
 epochs = 40
 batch_size = 10
+sample_count = 100
 steps = 30
-samples_count = 100
 generators = 2
-group_dataset = GroupDataset(samples_count, generators)
+group_dataset = GroupDataset(sample_count, generators)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = Encoder(generators).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+scheduler = WarmupMultiStepLR(optimizer, warmup_iters=10)
+criterion = torch.nn.MSELoss().to(device)
 
 for _ in range(epochs):
     epoch_loss = 0.0
