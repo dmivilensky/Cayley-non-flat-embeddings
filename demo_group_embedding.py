@@ -5,9 +5,10 @@ import itertools
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 from know_how_optimizer.lr_scheduler import WarmupMultiStepLR
-from model.encoder import EncoderLSTM
+from model.encoder import EncoderLSTM, EncoderConvolution
 from utils.free_group import pairwise_distances
 from data import GroupDataset
+import argparse
 
 
 def collate_wrapper(batch):
@@ -25,7 +26,18 @@ generators = 2
 group_dataset = GroupDataset(sample_count, generators)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = EncoderLSTM(generators).to(device)
+
+parser = argparse.ArgumentParser(description="Train embeddings for Cayley graph of the free group.")
+parser.add_argument("arch", type=str, help="Architecture of encoder (lstm, conv)", default="lstm")
+args = parser.parse_args()
+
+if args.arch == "lstm":
+    model = EncoderLSTM(generators).to(device)
+elif args.arch == "conv":
+    model = EncoderConvolution(generators).to(device)
+else:
+    raise AttributeError("Undefined encoder achitecture `" + args.arch + "`")
+
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = WarmupMultiStepLR(optimizer, warmup_iters=10)
 criterion = torch.nn.MSELoss().to(device)
