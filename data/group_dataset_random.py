@@ -3,7 +3,7 @@ import random
 from torch.utils.data import Dataset
 
 
-class GroupDataset(Dataset):
+class GroupDatasetRandom(Dataset):
     def __init__(self, sample_count, generators):
         self.sample_count = sample_count
         self.generators = generators

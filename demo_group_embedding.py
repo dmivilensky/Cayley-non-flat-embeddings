@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from know_how_optimizer.lr_scheduler import WarmupMultiStepLR
 from model.encoder import EncoderLSTM, EncoderConvolution
 from utils.free_group import pairwise_distances
-from data import GroupDataset
+from data import GroupDatasetRandom
 import argparse
 
 
@@ -23,7 +23,7 @@ batch_size = 10
 sample_count = 100
 steps = 30
 generators = 2
-group_dataset = GroupDataset(sample_count, generators)
+group_dataset = GroupDatasetRandom(sample_count, generators)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
