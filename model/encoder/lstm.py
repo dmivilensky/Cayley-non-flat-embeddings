@@ -7,12 +7,13 @@ class EncoderLSTM(torch.nn.Module):
     def __init__(
         self, generators,
         letter_dimension=2, dimension=256,
-        bidirectional=True, layers=2
+        bidirectional=True, layers=2, dropout=0.2
     ):
         super().__init__()
         self.generators = generators
         self.letter_dimension = letter_dimension
         self.dimension = dimension
+        self.dropout = dropout
 
         if self.letter_dimension != self.generators:
             self.embedding = torch.nn.Embedding(
@@ -37,7 +38,7 @@ class EncoderLSTM(torch.nn.Module):
         self.lstm = torch.nn.LSTM(
             self.letter_dimension, self.dimension // (
                 layers * (2 if bidirectional else 1)),
-            num_layers=layers, bidirectional=True, dropout=0.2, batch_first=True
+            num_layers=layers, bidirectional=True, dropout=self.dropout, batch_first=True
         )
 
     def forward(self, text, text_lengths):

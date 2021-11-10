@@ -25,11 +25,12 @@ def collate_wrapper(batch):
     ], batch_first=True, padding_value=0), [sen['sequence'][1] for sen in batch]
 
 
+FIGURES_PATH = "./figures/"
 epochs = 1000
 generators = 2
 dimension = 256
 
-if not os.path.isfile(f'conv_{epochs}_{generators}.data'):
+if not os.path.isfile(FIGURES_PATH + f'conv_{epochs}_{generators}.data'):
     batch_size = 10
     sample_count = 100
     steps = 50
@@ -96,11 +97,11 @@ if not os.path.isfile(f'conv_{epochs}_{generators}.data'):
     dists = dists - parameters_to_vector(model.parameters()).detach().numpy()
     dists = np.apply_along_axis(np.linalg.norm, 1, dists)
 
-    with open(f'conv_{dimension}_{generators}.data', 'wb') as f:
+    with open(FIGURES_PATH + f'conv_{dimension}_{generators}.data', 'wb') as f:
         pickle.dump((losses, dists, grads), f)
 
 else:
-    with open(f'conv_{dimension}_{generators}.data', 'rb') as f:
+    with open(FIGURES_PATH + f'conv_{dimension}_{generators}.data', 'rb') as f:
         losses, dists, grads = pickle.load(f)
 
 plt.rcParams.update({'font.size': 16})
@@ -115,7 +116,7 @@ ax.set_ylabel('$f(x^N)$')
 ax.set_title(f'$d = {dimension}, gen = {generators}$')
 ax.grid(alpha=0.4)
 plt.tight_layout()
-plt.savefig(f'conv_{epochs}_{generators}.pdf')
+plt.savefig(FIGURES_PATH + f'conv_{epochs}_{generators}.pdf')
 plt.show()
 
 fig = plt.figure()
@@ -128,7 +129,7 @@ ax.set_ylabel('$\\|\\nabla f(x^N)\\|_2$')
 ax.set_title(f'$d = {dimension}, gen = {generators}$')
 ax.grid(alpha=0.4)
 plt.tight_layout()
-plt.savefig(f'conv_grad_{epochs}_{generators}.pdf')
+plt.savefig(FIGURES_PATH + f'conv_grad_{epochs}_{generators}.pdf')
 plt.show()
 
 fig = plt.figure()
@@ -141,5 +142,5 @@ ax.set_ylabel('$\\|x^N - x^*\\|_2$')
 ax.set_title(f'$d = {dimension}, gen = {generators}$')
 ax.grid(alpha=0.4)
 plt.tight_layout()
-plt.savefig(f'conv_arg_{epochs}_{generators}.pdf')
+plt.savefig(FIGURES_PATH + f'conv_arg_{epochs}_{generators}.pdf')
 plt.show()

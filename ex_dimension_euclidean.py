@@ -24,11 +24,12 @@ def collate_wrapper(batch):
     ], batch_first=True, padding_value=0), [sen['sequence'][1] for sen in batch]
 
 
+FIGURES_PATH = "./figures/"
 epochs = 10
 generators = 2
 attempts = 10
 
-if not os.path.isfile(f'dims_{epochs}_{generators}.data'):
+if not os.path.isfile(FIGURES_PATH + f'dims_{epochs}_{generators}.data'):
     batch_size = 10
     sample_count = 100
     steps = 50
@@ -99,11 +100,11 @@ if not os.path.isfile(f'dims_{epochs}_{generators}.data'):
         plateaus.append(np.mean(problem_losses))
         stds.append(np.std(problem_losses))
 
-    with open(f'dims_{epochs}_{generators}.data', 'wb') as f:
+    with open(FIGURES_PATH + f'dims_{epochs}_{generators}.data', 'wb') as f:
         pickle.dump((dimensions, plateaus, stds), f)
 
 else:
-    with open(f'dims_{epochs}_{generators}.data', 'rb') as f:
+    with open(FIGURES_PATH + f'dims_{epochs}_{generators}.data', 'rb') as f:
         dimensions, plateaus, stds = pickle.load(f)
 
 plt.rcParams.update({'font.size': 16})
@@ -123,5 +124,5 @@ ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_title(f'$N = {epochs}, gen = {generators}$')
 ax.grid(alpha=0.4)
 plt.tight_layout()
-plt.savefig(f'dims_{epochs}_{generators}.pdf')
+plt.savefig(FIGURES_PATH + f'dims_{epochs}_{generators}.pdf')
 plt.show()
