@@ -20,12 +20,13 @@ def lcp(strs):
 
 
 def pairwise_distances(sequences):
-    batch_size = sequences.shape[0]
-    result = numpy.zeros(shape=(batch_size, batch_size))
-    for i in range(batch_size):
-        for j in range(i + 1):
-            s1 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[i]))
-            s2 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[j]))
-            result[i, j] = result[j, i] =\
-                len(s1) + len(s2) - 2 * len(lcp([s1, s2]))
-    return torch.Tensor(result)
+    with torch.no_grad():
+        batch_size = sequences.shape[0]
+        result = numpy.zeros(shape=(batch_size, batch_size))
+        for i in range(batch_size):
+            for j in range(i + 1):
+                s1 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[i]))
+                s2 = "".join(map(lambda x: str(x.item()).strip("0"), sequences[j]))
+                result[i, j] = result[j, i] =\
+                    len(s1) + len(s2) - 2 * len(lcp([s1, s2]))
+        return torch.Tensor(result)
