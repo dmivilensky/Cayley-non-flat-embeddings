@@ -103,3 +103,10 @@ def reduce(word):
         else:
             stack.pop()
     return numpy.array(stack)
+
+def remove_elem_and_inverse(word, target):
+    return remove_targets(word, numpy.array([target, inverse(target)]))
+
+def reduce_and_pad(word, target_length):
+    reduced_word = reduce(word)
+    return numpy.pad(reduced_word, (0, target_length - len(reduced_word)), constant_values=(0, 0))
